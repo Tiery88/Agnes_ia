@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Mes dépôts GitHub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes créations — Tiery88</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -18,22 +19,12 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
-    padding: 2rem;
+    padding: 2rem 1rem;
     line-height: 1.5;
   }
-  h1 {
-    text-align: center;
-    margin-bottom: 0.5rem;
-  }
-  .subtitle {
-    text-align: center;
-    color: var(--muted);
-    margin-bottom: 2.5rem;
-  }
-  .category {
-    max-width: 900px;
-    margin: 0 auto 2.5rem;
-  }
+  h1 { text-align: center; margin-bottom: 0.5rem; }
+  .subtitle { text-align: center; color: var(--muted); margin-bottom: 2.5rem; }
+  .category { max-width: 900px; margin: 0 auto 2.5rem; }
   .category h2 {
     font-size: 1.25rem;
     border-bottom: 1px solid var(--border);
@@ -43,7 +34,7 @@
   }
   .repos {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 1rem;
   }
   .repo {
@@ -58,20 +49,9 @@
     flex-direction: column;
     gap: 0.5rem;
   }
-  .repo:hover {
-    transform: translateY(-3px);
-    border-color: var(--accent);
-  }
-  .repo .name {
-    font-weight: 600;
-    color: var(--accent);
-    font-size: 1.05rem;
-  }
-  .repo .desc {
-    color: var(--muted);
-    font-size: 0.9rem;
-    flex: 1;
-  }
+  .repo:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .repo .name { font-weight: 600; color: var(--accent); font-size: 1.05rem; }
+  .repo .desc { color: var(--muted); font-size: 0.9rem; flex: 1; }
   .repo .lang {
     font-size: 0.8rem;
     color: var(--muted);
@@ -81,110 +61,158 @@
   }
   .repo .lang::before {
     content: "";
-    width: 10px;
-    height: 10px;
+    width: 10px; height: 10px;
     border-radius: 50%;
     background: var(--accent);
   }
+  .loading, .error {
+    text-align: center;
+    color: var(--muted);
+    padding: 3rem 1rem;
+  }
+  .error { color: #f85149; }
 </style>
 </head>
 <body>
 
-<h1>📦 Mes dépôts GitHub</h1>
-<p class="subtitle">Classés par catégorie</p>
+<h1>🎬 Mes créations</h1>
+<p class="subtitle">Liste mise à jour automatiquement</p>
 
-<div id="content"></div>
+<div id="content">
+  <div class="loading">⏳ Chargement…</div>
+</div>
 
 <script>
   // ================================================================
-  // ✏️ CONFIGURATION : ajoute / modifie tes dépôts ici.
-  // Chaque dépôt : { name, url, description, language }
+  // 🔧 CONFIGURATION
   // ================================================================
-  const REPOS = {
-    "🌐 Sites Web": [
-      {
-        name: "mon-portfolio",
-        url: "https://github.com/ton-user/mon-portfolio",
-        description: "Portfolio personnel en HTML/CSS/JS.",
-        language: "JavaScript"
-      },
-      {
-        name: "blog-perso",
-        url: "https://github.com/ton-user/blog-perso",
-        description: "Blog statique généré avec Hugo.",
-        language: "HTML"
-      }
-    ],
-    "🛠️ Outils & Scripts": [
-      {
-        name: "auto-backup",
-        url: "https://github.com/ton-user/auto-backup",
-        description: "Script Bash de sauvegarde automatique.",
-        language: "Shell"
-      },
-      {
-        name: "pdf-merger",
-        url: "https://github.com/ton-user/pdf-merger",
-        description: "Fusion de PDF en Python.",
-        language: "Python"
-      }
-    ],
-    "🎮 Projets perso": [
-      {
-        name: "jeu-snake",
-        url: "https://github.com/ton-user/jeu-snake",
-        description: "Un petit jeu Snake en JavaScript.",
-        language: "JavaScript"
-      }
-    ]
-  };
+  const GITHUB_USER = "Tiery88";       // ton nom d'utilisateur
+  const GITHUB_REPO = "Agnes_ia";      // nom de ton dépôt
+  const GITHUB_BRANCH = "main";        // branche
+
+  // 🏷️ Catégories personnalisées : mot-clé dans le nom → { label, emoji }
+  // Le mot-clé est cherché (insensible à la casse) au début du nom du fichier.
+  // Si aucun ne correspond, la catégorie "Autres" est utilisée.
+  const CATEGORIES = [
+    { keyword: "agnes",     label: "Agnes",       emoji: "👩" },
+    { keyword: "clip",      label: "Clips",       emoji: "🎵" },
+    { keyword: "livraison", label: "Livraisons",  emoji: "📦" },
+    { keyword: "yoga",      label: "Yoga",        emoji: "🧘" },
+    { keyword: "image",     label: "Images",      emoji: "🖼️" }
+  ];
+  const DEFAULT_CATEGORY = { label: "Autres", emoji: "📁" };
+
   // ================================================================
 
   const content = document.getElementById("content");
 
-  for (const [category, repos] of Object.entries(REPOS)) {
-    const section = document.createElement("section");
-    section.className = "category";
+  // Échappe le HTML pour éviter les injections
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
 
-    const h2 = document.createElement("h2");
-    h2.textContent = category;
-    section.appendChild(h2);
+  // Enlève l'extension .html et formate le nom pour l'affichage
+  function prettyName(filename) {
+    let name = filename.replace(/\.html?$/i, "").replace(/[-_]/g, " ");
+    // Met en majuscule la première lettre de chaque mot
+    return name.replace(/\b\w/g, c => c.toUpperCase());
+  }
 
-    const grid = document.createElement("div");
-    grid.className = "repos";
+  // Trouve la catégorie d'un fichier
+  function findCategory(filename) {
+    const lower = filename.toLowerCase();
+    for (const cat of CATEGORIES) {
+      if (lower.startsWith(cat.keyword)) return cat;
+    }
+    return DEFAULT_CATEGORY;
+  }
 
-    repos.forEach(repo => {
-      const a = document.createElement("a");
-      a.className = "repo";
-      a.href = repo.url;
-      a.target = "_blank";        // ouvre dans un nouvel onglet
-      a.rel = "noopener noreferrer";
+  // Charge la liste des fichiers via l'API GitHub
+  async function loadRepos() {
+    const api = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/?ref=${GITHUB_BRANCH}`;
+    const res = await fetch(api);
+    if (!res.ok) throw new Error(`Erreur API GitHub (${res.status})`);
+    const files = await res.json();
 
-      const name = document.createElement("div");
-      name.className = "name";
-      name.textContent = repo.name;
-      a.appendChild(name);
+    // Filtre : uniquement les .html / .htm, à la racine, sauf index.html
+    const htmlFiles = files.filter(f =>
+      f.type === "file" &&
+      /\.html?$/i.test(f.name) &&
+      f.name.toLowerCase() !== "index.html"
+    );
 
-      if (repo.description) {
-        const desc = document.createElement("div");
-        desc.className = "desc";
-        desc.textContent = repo.description;
-        a.appendChild(desc);
-      }
+    if (htmlFiles.length === 0) {
+      content.innerHTML = '<div class="loading">Aucun fichier HTML pour le moment.</div>';
+      return;
+    }
 
-      if (repo.language) {
-        const lang = document.createElement("div");
-        lang.className = "lang";
-        lang.textContent = repo.language;
-        a.appendChild(lang);
-      }
-
-      grid.appendChild(a);
+    // Regroupe par catégorie
+    const groups = {};
+    htmlFiles.forEach(f => {
+      const cat = findCategory(f.name);
+      const key = cat.emoji + " " + cat.label;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(f);
     });
 
-    section.appendChild(grid);
-    content.appendChild(section);
+    // Trie les catégories (ordre défini ci-dessus, puis Autres à la fin)
+    const order = CATEGORIES.map(c => c.emoji + " " + c.label);
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      const ia = order.indexOf(a); const ib = order.indexOf(b);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+
+    // Construit le HTML
+    content.innerHTML = "";
+    sortedKeys.forEach(key => {
+      const section = document.createElement("section");
+      section.className = "category";
+
+      const h2 = document.createElement("h2");
+      h2.textContent = key;
+      section.appendChild(h2);
+
+      const grid = document.createElement("div");
+      grid.className = "repos";
+
+      // Trie les fichiers par nom dans la catégorie
+      groups[key].sort((a, b) => a.name.localeCompare(b.name));
+
+      groups[key].forEach(f => {
+        const a = document.createElement("a");
+        a.className = "repo";
+        a.href = f.name;              // lien relatif → même dépôt
+        a.target = "_blank";          // 👈 nouvel onglet
+        a.rel = "noopener noreferrer";
+
+        const nameEl = document.createElement("div");
+        nameEl.className = "name";
+        nameEl.textContent = prettyName(f.name);
+        a.appendChild(nameEl);
+
+        const descEl = document.createElement("div");
+        descEl.className = "desc";
+        descEl.textContent = f.name;
+        a.appendChild(descEl);
+
+        const langEl = document.createElement("div");
+        langEl.className = "lang";
+        langEl.textContent = "HTML";
+        a.appendChild(langEl);
+
+        grid.appendChild(a);
+      });
+
+      section.appendChild(grid);
+      content.appendChild(section);
+    });
   }
+
+  loadRepos().catch(err => {
+    content.innerHTML = `<div class="error">❌ ${escapeHtml(err.message)}</div>`;
+  });
 </script>
 
 </body>
