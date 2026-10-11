@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YogaGen — Générateur de poses de Yoga</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        :root {
+            --primary: #6b8e23; --primary-dark: #556b2f;
+            --bg: #f4f7f6; --card-bg: #ffffff;
+            --text: #333; --text-light: #666;
+            --border: #e0e0e0; --radius: 14px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.06);
+            --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --danger: #c85a4a;
+        }
+        body { background: var(--bg); color: var(--text); font-family: var(--font); padding: 20px 16px 60px; display: flex; justify-content: center; min-height: 100vh; }
+        .app-container { width: 100%; max-width: 720px; background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; }
+        header { background: linear-gradient(135deg, var(--primary), #4a6b1a); color: white; padding: 24px 20px; text-align: center; }
+        header h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: 1px; }
+        header p { font-size: 0.9rem; opacity: 0.9; margin-top: 6px; font-weight: 300; }
+        .main-content { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        
+        .api-config { background: #f0f7eb; border: 1px solid #d0e0c0; border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .api-config h3 { font-size: 0.85rem; color: var(--primary-dark); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        .api-config input { padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; width: 100%; font-family: monospace; }
+        .api-config input:focus { outline: none; border-color: var(--primary); }
+        .api-hint { font-size: 0.72rem; color: #888; font-style: italic; }
+        .api-status { font-size: 0.78rem; display: flex; align-items: center; gap: 6px; color: var(--text-light); }
+        .api-status .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+        .api-status.ok .dot { background: #4a9d6a; box-shadow: 0 0 6px #4a9d6a; }
+
+        .upload-section { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--border); border-radius: var(--radius); padding: 30px 20px; background: #fafafa; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .upload-section:hover { border-color: var(--primary); background: #f0f7eb; }
+        .upload-section input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .upload-icon { font-size: 2.5rem; color: var(--primary); margin-bottom: 10px; }
+        .upload-text { font-weight: 600; color: var(--text); }
+        .upload-subtext { font-size: 0.8rem; color: var(--text-light); margin-top: 5px; }
+        .preview-container { display: none; align-items: center; gap: 15px; padding: 12px; background: #f9f9f9; border-radius: var(--radius); border: 1px solid var(--border); }
+        .preview-container img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary); }
+        .preview-info { flex: 1; }
+        .preview-info strong { display: block; font-size: 0.9rem; }
+        .preview-info span { display: block; font-size: 0.78rem; color: var(--text-light); }
+        .preview-container button { background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #999; padding: 4px; }
+
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 600px) { .options-grid { grid-template-columns: 1fr; } }
+        .option-group { display: flex; flex-direction: column; gap: 6px; }
+        .option-group label { font-size: 0.78rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .option-group select, .option-group input[type="text"] { padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; background: white; font-family: inherit; }
+        .option-group select:focus, .option-group input:focus { border-color: var(--primary); }
+        
+        .view-select { background: #f0f7eb !important; border: 2px solid var(--primary) !important; font-weight: 700 !important; color: var(--primary-dark) !important; }
+
+        .generate-btn { background: var(--primary); color: white; border: none; padding: 18px; border-radius: var(--radius); font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; justify-content: center; align-items: center; gap: 10px; font-family: inherit; }
+        .generate-btn:hover { background: var(--primary-dark); }
+        .generate-btn:active { transform: scale(0.98); }
+        .generate-btn:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .stop-btn { background: white; color: var(--danger); border: 2px solid var(--danger); padding: 14px; border-radius: var(--radius); font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; display: none; justify-content: center; align-items: center; gap: 10px; margin-top: 8px; }
+        .stop-btn.visible { display: flex; }
+        .stop-btn:hover { background: var(--danger); color: white; }
+        .stop-btn:active { transform: scale(0.98); }
+
+        .progress-container { display: none; flex-direction: column; gap: 8px; padding: 18px; background: #f9fdf7; border-radius: var(--radius); border: 1px solid var(--primary); }
+        .progress-header { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; color: var(--primary-dark); }
+        .progress-bar-bg { width: 100%; height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), #8fb83e); border-radius: 5px; transition: width 0.3s ease; }
+        .progress-status { font-size: 0.82rem; color: var(--text-light); font-style: italic; display: flex; align-items: center; gap: 8px; }
+        .progress-status::before { content: ''; display: inline-block; width: 8px; height: 8px; background: var(--primary); border-radius: 50%; animation: pulse 1s infinite alternate; }
+        @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
+
+        .results-section { display: none; border-top: 1px solid var(--border); padding-top: 20px; }
+        .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .results-header h3 { font-size: 1.05rem; color: var(--text); }
+        .results-header span { font-size: 0.8rem; color: var(--text-light); }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+        
+        .result-item { aspect-ratio: 1; background: #f0f0f0; border-radius: 10px; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 0.75rem; text-align: center; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .result-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .result-item .ri-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,0.75)); color: #fff; font-size: 0.65rem; text-align: left; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; pointer-events: none; }
+        .result-item .ri-spinner { width: 24px; height: 24px; border: 3px solid #ddd; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .result-item.error { background: #fde8e8; color: var(--danger); }
+        
+        .result-item .ri-actions { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; z-index: 10; }
+        .result-item .ri-actions button { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(0,0,0,0.55); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; transition: all 0.15s; backdrop-filter: blur(4px); }
+        .result-item .ri-actions button:hover { background: rgba(0,0,0,0.85); transform: scale(1.1); }
+        .result-item .ri-actions button.thumb-down.active { background: var(--danger); }
+        .result-item .ri-check { position: absolute; top: 6px; left: 6px; width: 24px; height: 24px; border-radius: 5px; border: 2px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.4); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; z-index: 10; }
+        .result-item.selected .ri-check { background: var(--primary); border-color: var(--primary); }
+        .result-item.marked-bad { opacity: 0.6; filter: grayscale(0.5); border: 2px solid var(--danger); }
+        .result-item .ri-bad-badge { position: absolute; top: 40px; left: 6px; background: var(--danger); color: white; font-size: 0.6rem; padding: 3px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px; z-index: 10; }
+
+        .selection-bar { display: none; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 8px; padding: 12px; background: #f9f9f9; border-radius: var(--radius); border: 1px solid var(--border); }
+        .selection-bar .sel-info { font-size: 0.82rem; color: var(--text-light); }
+        .selection-bar button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--primary); background: white; color: var(--primary); font-weight: 600; font-size: 0.75rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; font-family: inherit; transition: all 0.15s; }
+        .selection-bar button:hover { background: var(--primary); color: white; }
+        .selection-bar button.primary { background: var(--primary); color: white; }
+        .selection-bar button.primary:hover { background: var(--primary-dark); }
+
+        .more-poses-btn { width: 100%; padding: 16px; border-radius: var(--radius); border: 2px dashed var(--primary); background: white; color: var(--primary); font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
+        .more-poses-btn:hover { background: var(--primary); color: white; border-style: solid; }
+        .more-poses-btn:disabled { opacity: 0.5; cursor: not-allowed; border-color: #ccc; color: #ccc; }
+
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-120px); background: #333; color: white; padding: 12px 24px; border-radius: 8px; font-size: 0.88rem; z-index: 1000; opacity: 0; transition: all 0.35s; box-shadow: 0 8px 24px rgba(0,0,0,0.2); max-width: 90vw; text-align: center; }
+        .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.success { background: #4a9d6a; }
+        .toast.error { background: var(--danger); }
+        .toast.warn { background: #d4a017; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1>🧘‍♀️ YogaGen</h1>
+        <p>Une photo, 20 poses de yoga générées par IA</p>
+    </header>
+
+    <div class="main-content">
+
+        <div class="api-config">
+            <h3>🔑 Connexion à Agnes AI</h3>
+            <input type="password" id="apiKeyInput" placeholder="Collez votre clé API Agnes (sk-...)" autocomplete="off">
+            <div class="api-status" id="apiStatus">
+                <span class="dot"></span>
+                <span id="apiStatusText">Aucune clé enregistrée</span>
+            </div>
+            <p class="api-hint">Trouvez votre clé sur platform.agnes-ai.com → Settings → API Keys</p>
+        </div>
+
+        <div class="upload-section" id="uploadSection">
+            <input type="file" id="fileInput" accept="image/*">
+            <div class="upload-icon">📸</div>
+            <div class="upload-text">Cliquez pour ajouter votre photo</div>
+            <div class="upload-subtext">Format JPG, PNG — visage bien visible</div>
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+            <img id="previewImage" src="" alt="">
+            <div class="preview-info">
+                <strong>Photo chargée</strong>
+                <span id="fileName">image.jpg</span>
+            </div>
+            <button onclick="resetUpload()">✖</button>
+        </div>
+
+        <div class="options-grid">
+            <div class="option-group">
+                <label for="poseSelect">Pose de Yoga</label>
+                <select id="poseSelect">
+                    <option value="random">🎲 Aléatoire (20 poses)</option>
+                </select>
+            </div>
+            <div class="option-group">
+                <label for="viewSelect">Type de vue ⚡</label>
+                <select id="viewSelect" class="view-select">
+                    <option value="front">👁️ Face (de face)</option>
+                    <option value="side_left">⬅️ Côté gauche</option>
+                    <option value="side_right">➡️ Côté droit</option>
+                    <option value="back">🔄 Dos</option>
+                    <option value="top">⬇️ Dessus (plongée)</option>
+                    <option value="bottom">⬆️ Dessous (contre-plongée)</option>
+                </select>
+            </div>
+            <div class="option-group">
+                <label for="environmentSelect">Environnement</label>
+                <select id="environmentSelect">
+                    <option value="studio">Studio épuré</option>
+                    <option value="plage">Plage au coucher du soleil</option>
+                    <option value="jardin">Jardin zen</option>
+                    <option value="salon">Salon moderne</option>
+                    <option value="montagne">Montagne</option>
+                </select>
+            </div>
+            <div class="option-group">
+                <label for="clothingSelect">Tenue</label>
+                <select id="clothingSelect">
+                    <option value="leggings">Leggings & Brassière</option>
+                    <option value="maillot">Maillot de bain</option>
+                    <option value="sous_vetements">Sous-vêtements sportifs</option>
+                    <option value="tenue_complete">Tenue complète</option>
+                </select>
+            </div>
+            <div class="option-group">
+                <label for="colorInput">Couleur dominante</label>
+                <input type="text" id="colorInput" placeholder="Ex: Vert sauge" value="Vert sauge">
+            </div>
+        </div>
+
+        <button class="generate-btn" id="generateBtn" onclick="generateImages()">
+            ✨ Générer les 20 images
+        </button>
+        
+        <button class="stop-btn" id="stopBtn" onclick="stopGeneration()">
+            🛑 Arrêter la génération
+        </button>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-header">
+                <span>Génération en cours...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+            <div class="progress-status" id="progressStatus">Initialisation...</div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="results-header">
+                <h3>📸 Vos poses générées</h3>
+                <span id="resultCount">0 / 20</span>
+            </div>
+            <div class="results-grid" id="resultsGrid"></div>
+            
+            <button class="more-poses-btn" id="morePosesBtn" onclick="generateMore()">
+                ➕ Plus de poses (20 supplémentaires)
+            </button>
+            
+            <div class="selection-bar" id="selectionBar">
+                <span class="sel-info"><strong id="selectionCount">0</strong> image(s) sélectionnée(s)</span>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button onclick="selectAll()">Tout sélectionner</button>
+                    <button onclick="deselectAll()">Désélectionner</button>
+                    <button class="primary" onclick="downloadSelection()">⬇ Télécharger</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+/* ============================================================
+   YOGAGEN — Moteur de génération Agnes AI
+   v9 : Vue "Dessus" / "Dessous" → image neutre + caméra
+        perpendiculaire obligatoire
+   ============================================================ */
+
+const API_BASE = 'https://apihub.agnes-ai.com/v1';
+const MODEL_IMAGE = 'agnes-image-2.1-flash';
+const KEY_STORAGE = 'yogagen_api_key';
+
+const state = {
+    apiKey: '', referenceImage: null, images: [],
+    isRunning: false, stopRequested: false, badPrompts: [],
+    usedPoseIds: []
+};
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let toastTimer = null;
+function showToast(msg, type = 'success', duration = 2500) {
+    const t = $('toast');
+    t.className = 'toast'; void t.offsetWidth;
+    t.textContent = msg; t.classList.add(type, 'visible');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('visible'), duration);
+}
+
+/* ---------- API ---------- */
+function loadApiKey() { try { const k = localStorage.getItem(KEY_STORAGE); if (k) { state.apiKey = k; $('apiKeyInput').value = k; } } catch (e) {} updateApiStatus(); }
+function saveApiKey() { const k = $('apiKeyInput').value.trim(); if (!k) { showToast('Veuillez entrer une clé API', 'warn'); return; } state.apiKey = k; try { localStorage.setItem(KEY_STORAGE, k); } catch (e) {} updateApiStatus(); showToast('Clé API enregistrée ✓', 'success'); }
+function updateApiStatus() { const s = $('apiStatus'), t = $('apiStatusText'); if (state.apiKey) { s.classList.add('ok'); t.textContent = 'Clé active · ' + state.apiKey.slice(0, 8) + '...' + state.apiKey.slice(-4); } else { s.classList.remove('ok'); t.textContent = 'Aucune clé enregistrée'; } }
+
+/* ---------- UPLOAD ---------- */
+function fileToDataUri(file) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = e => resolve(e.target.result); r.onerror = () => reject(new Error('Erreur')); r.readAsDataURL(file); }); }
+function compressImage(dataUrl, maxSide = 1600) { return new Promise(resolve => { const img = new Image(); img.onload = () => { let { width, height } = img; const scale = Math.min(1, maxSide / Math.max(width, height)); width = Math.round(width * scale); height = Math.round(height * scale); const c = document.createElement('canvas'); c.width = width; c.height = height; c.getContext('2d').drawImage(img, 0, 0, width, height); resolve(c.toDataURL('image/jpeg', 0.92)); }; img.onerror = () => resolve(dataUrl); img.src = dataUrl; }); }
+$('fileInput').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('Fichier non-image', 'error'); return; }
+    try { const raw = await fileToDataUri(file); const compressed = await compressImage(raw); state.referenceImage = compressed; $('previewImage').src = compressed; $('fileName').textContent = file.name; $('uploadSection').style.display = 'none'; $('previewContainer').style.display = 'flex'; showToast('Photo prête', 'success', 1500); } catch (err) { showToast('Erreur', 'error'); }
+});
+function resetUpload() { state.referenceImage = null; $('fileInput').value = ''; $('previewImage').src = ''; $('uploadSection').style.display = 'flex'; $('previewContainer').style.display = 'none'; $('resultsSection').style.display = 'none'; $('resultsGrid').innerHTML = ''; $('progressContainer').style.display = 'none'; state.images = []; state.usedPoseIds = []; }
+
+/* ⚡ Image de référence NEUTRE (carré gris clair) */
+function createNeutralReference() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 512, 512);
+    grad.addColorStop(0, '#e8e8e8'); grad.addColorStop(1, '#f5f5f5');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = '#cccccc'; ctx.lineWidth = 1;
+    ctx.strokeRect(200, 200, 112, 112);
+    return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+/* ---------- API FETCH ---------- */
+async function apiFetch(url, options, label, maxAttempts = 4) {
+    options = options || {}; let lastErr = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        if (!state.apiKey) throw new Error('Aucune clé API');
+        const headers = Object.assign({}, options.headers || {}, { 'Authorization': 'Bearer ' + state.apiKey });
+        try {
+            const res = await fetch(url, Object.assign({}, options, { headers }));
+            if (res.ok) return res;
+            let errorText = ''; try { errorText = (await res.clone().text()).slice(0, 500); } catch (e) {}
+            if ([400, 401, 403, 404].includes(res.status)) throw new Error('HTTP ' + res.status + ' — ' + errorText.slice(0, 200));
+            if (res.status === 429) { await sleep((15 + attempt * 10) * 1000); continue; }
+            await sleep(5 + attempt * 3);
+        } catch (e) { if (e.message && e.message.includes('HTTP')) throw e; lastErr = e; await sleep(4 + attempt * 3); }
+    }
+    throw lastErr || new Error('Échec après ' + maxAttempts + ' tentatives');
+}
+
+async function generateImage(prompt, useNeutralRef) {
+    const refImage = useNeutralRef ? NEUTRAL_REFERENCE : state.referenceImage;
+    const body = { model: MODEL_IMAGE, prompt: prompt, n: 1, size: '1K', ratio: '1:1', extra_body: { image: [refImage], response_format: 'url' } };
+    const res = await apiFetch(API_BASE + '/images/generations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 'Image');
+    const data = await res.json(); const item = data.data && data.data[0];
+    if (!item) throw new Error('Pas d\'image');
+    if (item.url) return item.url;
+    if (item.b64_json) return 'data:image/png;base64,' + item.b64_json;
+    throw new Error('Format inconnu');
+}
+
+let NEUTRAL_REFERENCE = null;
+
+/* ---------- PROMPTS ---------- */
+function buildYogaPrompt(poseName, poseDesc, environment, clothing, color, viewKey, viewText, avoidText) {
+    const envMap = { studio: 'in a minimalist bright studio with wooden floor and large windows', plage: 'on a tropical beach at golden hour, ocean waves in the background', jardin: 'in a lush green zen garden with morning light', salon: 'in a cozy modern living room with soft afternoon light', montagne: 'on a mountain top at sunrise with dramatic landscape' };
+    const clothMap = { leggings: 'wearing ' + color + ' leggings and a matching sports bra', maillot: 'wearing a ' + color + ' swimsuit', sous_vetements: 'wearing ' + color + ' sporty underwear', tenue_complete: 'wearing a ' + color + ' tank top and yoga shorts' };
+    const envText = envMap[environment] || envMap.studio;
+    const clothText = clothMap[clothing] || clothMap.leggings;
+    const avoid = avoidText ? '\n\nAVOID: ' + avoidText : '';
+
+    const faceVisibleViews = ['front', 'side_left', 'side_right'];
+    const isFaceVisible = faceVisibleViews.includes(viewKey);
+
+    let identityBlock = '';
+    if (isFaceVisible) {
+        identityBlock = [
+            '=== ABSOLUTE PRIORITY 1: PRESERVE THE SAME PERSON ===',
+            'KEEP THE EXACT SAME PERSON AT ALL COSTS.',
+            'You MUST preserve EXACTLY:',
+            '- SAME FACE — same eyes, nose, mouth, jawline, bone structure',
+            '- SAME HAIRSTYLE — same length, color, texture',
+            '- SAME SKIN TONE — same complexion and undertones',
+            '- SAME AGE — same apparent age',
+            '- SAME ETHNICITY — same ethnic features',
+            'DO NOT change the person. DO NOT beautify. DO NOT age. DO NOT change gender.'
+        ].join('\n');
+    } else {
+        identityBlock = [
+            '=== ABSOLUTE PRIORITY 1: PRESERVE THE SAME BODY AND OUTFIT ===',
+            'The camera view requested does NOT show the face.',
+            'DO NOT try to preserve facial features. DO NOT invent a face.',
+            'You MUST preserve EXACTLY:',
+            '- SAME BODY SHAPE — same silhouette, proportions, height, build',
+            '- SAME HAIRSTYLE — same length, same color (seen from behind / above)',
+            '- SAME SKIN TONE — same complexion on visible skin',
+            '- SAME OUTFIT — same exact clothing items, colors, cut',
+            'DO NOT change the body. DO NOT add accessories or animals.'
+        ].join('\n');
+    }
+
+    // ⚡ Règle anti "tête retournée" pour les vues où on voit le visage
+    let antiTwistRule = '';
+    if (isFaceVisible) {
+        antiTwistRule = [
+            '=== ABSOLUTE PRIORITY 2: FULL BODY ORIENTATION (NO HEAD TWIST) ===',
+            'The requested camera view is ' + viewKey.toUpperCase() + '.',
+            'The WHOLE BODY must be oriented according to this view. DO NOT twist only the head or neck.',
+            'If the pose naturally faces away from the camera (like downward dog), you must ADAPT the pose so the ENTIRE BODY faces the camera as requested.',
+            'The head must follow the same orientation as the torso and hips. NO twisted neck. NO 180-degree head rotation.',
+            'A normal human cannot turn their head 180 degrees. Keep the pose anatomically correct.'
+        ].join('\n');
+    }
+
+    // ⚡ Règle spéciale pour les vues PERPENDICULAIRES (Dessus / Dessous)
+    let perpendicularRule = '';
+    if (viewKey === 'top' || viewKey === 'bottom') {
+        perpendicularRule = [
+            '=== ABSOLUTE PRIORITY 2: PERPENDICULAR CAMERA ===',
+            'The camera is positioned PERPENDICULAR to the floor.',
+            viewKey === 'top'
+                ? 'The camera is attached to the CEILING, pointing STRAIGHT DOWN at the floor. We see the scene from ABOVE.'
+                : 'The camera is attached to the FLOOR, pointing STRAIGHT UP at the ceiling. We see the scene from BELOW.',
+            'The camera is NOT tilted. The camera is NOT at an angle. The camera is EXACTLY perpendicular to the ground.',
+            'DO NOT show a front view. DO NOT show a side view. ONLY show the perpendicular view described above.',
+            'DO NOT copy the angle of the reference image. The reference image is IRRELEVANT for the camera angle.'
+        ].join('\n');
+    }
+
+    return [
+        identityBlock,
+        '',
+        '=== CAMERA VIEW (ABSOLUTE REQUIREMENT) ===',
+        'You are a TECHNICAL ORTHOGRAPHIC CAMERA.',
+        'Render the scene EXACTLY from this single viewpoint:',
+        viewText,
+        'This is NON-NEGOTIABLE. No other angle. No side profile. No mixing views.',
+        '',
+        antiTwistRule,
+        perpendicularRule,
+        '',
+        '=== SCENE ===',
+        'POSE: ' + poseName + ' — ' + poseDesc,
+        'ENVIRONMENT: ' + envText,
+        'CLOTHING: ' + clothText,
+        avoid,
+        '',
+        'STYLE: Professional yoga photography, natural lighting, serene atmosphere, high detail, realistic rendering, square 1:1 format, no text, no watermark.',
+        '',
+        'FINAL REMINDERS:',
+        '1. Preserve the same person / body / outfit.',
+        '2. Respect the exact camera view. NO head twist. NO 180-degree neck rotation.',
+        '3. No animals, no extra objects.',
+        'Only the POSE and VIEW change.'
+    ].join('\n');
+}
+
+const VIEWS = {
+    front: 'FRONT VIEW — camera directly facing the subject at eye level. The WHOLE BODY (head, torso, hips, legs) is oriented toward the camera. Orthographic front elevation.',
+    side_left: 'LEFT SIDE VIEW — camera at exactly 90 degrees to the left. Pure profile view of the LEFT side. The whole body is in profile. Orthographic left elevation.',
+    side_right: 'RIGHT SIDE VIEW — camera at exactly 90 degrees to the right. Pure profile view of the RIGHT side. The whole body is in profile. Orthographic right elevation.',
+    back: 'BACK VIEW — camera exactly behind the subject. We see the back of the head, back, and back of the legs. The face is NOT visible. Orthographic rear elevation.',
+    top: 'TOP VIEW (BIRD\'S EYE / PLAN VIEW) — The camera is mounted on the CEILING, pointing STRAIGHT DOWN at the floor. Perpendicular to the ground. We look at the scene from ABOVE. We see the top of the head, the shoulders, the back, and the floor beneath the person. The face is NOT visible. This is a flat, perpendicular top-down view, NOT a tilted view.',
+    bottom: 'BOTTOM VIEW (WORM\'S EYE / UNDERSIDE VIEW) — The camera is mounted on the FLOOR, pointing STRAIGHT UP at the ceiling. Perpendicular to the ground. We look at the scene from BELOW. We see the underside of the body and the ceiling above. The face is NOT visible. This is a flat, perpendicular bottom-up view, NOT a tilted view.'
+};
+const VIEW_LABELS = {
+    front: 'Vue de face',
+    side_left: 'Côté gauche',
+    side_right: 'Côté droit',
+    back: 'Vue de dos',
+    top: 'Vue de dessus',
+    bottom: 'Vue de dessous'
+};
+
+const YOGA_POSES = [
+    { id: 'chien', name: 'Chien tête en bas', desc: 'Adho Mukha Svanasana, downward-facing dog, body inverted in V shape' },
+    { id: 'guerrier1', name: 'Guerrier I', desc: 'Virabhadrasana I, warrior one, one leg forward bent, arms raised overhead' },
+    { id: 'guerrier2', name: 'Guerrier II', desc: 'Virabhadrasana II, warrior two, legs wide, arms extended horizontally' },
+    { id: 'guerrier3', name: 'Guerrier III', desc: 'Virabhadrasana III, warrior three, balancing on one leg, torso parallel to floor' },
+    { id: 'arbre', name: 'L\'Arbre', desc: 'Vrksasana, tree pose, standing on one leg, other foot on inner thigh, hands in prayer' },
+    { id: 'cobra', name: 'Le Cobra', desc: 'Bhujangasana, cobra pose, lying on stomach, chest lifted, arms supporting' },
+    { id: 'lotus', name: 'Le Lotus', desc: 'Padmasana, lotus pose, seated cross-legged, hands on knees, straight back' },
+    { id: 'triangle', name: 'Triangle', desc: 'Trikonasana, triangle pose, legs wide, torso bent to one side, one arm up' },
+    { id: 'pigeon', name: 'Pigeon', desc: 'Kapotasana, pigeon pose, one leg forward bent, other extended back, torso upright' },
+    { id: 'pont', name: 'Pont', desc: 'Setu Bandhasana, bridge pose, lying on back, hips lifted, feet flat on floor' },
+    { id: 'chaise', name: 'La Chaise', desc: 'Utkatasana, chair pose, knees bent, arms raised overhead, spine straight' },
+    { id: 'sphinx', name: 'Sphinx', desc: 'Salamba Bhujangasana, sphinx pose, forearms on ground, chest lifted, legs extended back' },
+    { id: 'enfant', name: 'Posture de l\'Enfant', desc: 'Balasana, child\'s pose, kneeling, forehead on floor, arms extended forward' },
+    { id: 'cadavre', name: 'Cadavre', desc: 'Savasana, corpse pose, lying flat on back, arms at sides, palms up, eyes closed' },
+    { id: 'montagne', name: 'La Montagne', desc: 'Tadasana, mountain pose, standing straight, feet together, arms at sides' },
+    { id: 'danseur', name: 'Danseur', desc: 'Natarajasana, dancer pose, standing on one leg, other leg bent back, hand holding foot' },
+    { id: 'aigle', name: 'Aigle', desc: 'Garudasana, eagle pose, standing on one leg, other leg wrapped around, arms intertwined' },
+    { id: 'chameau', name: 'Chameau', desc: 'Ustrasana, camel pose, kneeling, back arched, hands on heels, chest open' },
+    { id: 'poisson', name: 'Poisson', desc: 'Matsyasana, fish pose, lying on back, chest lifted, head tilted back, legs straight' },
+    { id: 'corbeau', name: 'Corbeau', desc: 'Bakasana, crow pose, balancing on hands, knees on upper arms, feet off ground' },
+    { id: 'pince', name: 'Pince assise', desc: 'Paschimottanasana, seated forward bend, legs extended, torso folded forward' },
+    { id: 'pince_debout', name: 'Pince debout', desc: 'Uttanasana, standing forward bend, torso folded over legs, hands to floor' },
+    { id: 'torsion', name: 'Torsion assise', desc: 'Ardha Matsyendrasana, seated spinal twist, one leg bent over, torso twisted' },
+    { id: 'papillon', name: 'Papillon', desc: 'Baddha Konasana, butterfly pose, seated, soles of feet together, knees out' },
+    { id: 'grenouille', name: 'Grenouille', desc: 'Mandukasana, frog pose, on all fours, knees wide, hips back' },
+    { id: 'grenouille_royale', name: 'Grenouille royale', desc: 'Bhekasana, frog pose, lying on stomach, knees bent, hands holding feet' },
+    { id: 'crocodile', name: 'Crocodile', desc: 'Makarasana, crocodile pose, lying on stomach, arms folded under head' },
+    { id: 'tortue', name: 'Tortue', desc: 'Kurmasana, tortoise pose, seated, legs wide, torso folded forward, arms under legs' },
+    { id: 'scorpion', name: 'Scorpion', desc: 'Vrischikasana, scorpion pose, forearm stand, back arched, feet toward head' },
+    { id: 'poirier', name: 'Poirier', desc: 'Sirsasana, headstand, balancing on head and forearms, legs straight up' },
+    { id: 'chandelle', name: 'Chandelle', desc: 'Sarvangasana, shoulder stand, balancing on shoulders, legs straight up' },
+    { id: 'laboure', name: 'La Charrue', desc: 'Halasana, plow pose, lying on back, legs folded over head, toes to floor' },
+    { id: 'pince_laterale', name: 'Pince latérale', desc: 'Parivrtta Janu Sirsasana, seated side bend, one leg extended, torso twisted' },
+    { id: 'guerrier_humble', name: 'Guerrier humble', desc: 'Bhairavasana, humble warrior, legs wide, torso folded forward, hands clasped behind back' },
+    { id: 'couché_torsion', name: 'Torsion couchée', desc: 'Supta Matsyendrasana, supine spinal twist, lying on back, one knee crossed over' },
+    { id: 'pied_main', name: 'Pied dans la main', desc: 'Padangusthasana, standing forward bend, hands holding big toes, straight legs' },
+    { id: 'aiguille', name: 'L\'Aiguille', desc: 'Parivrtta Parsvakonasana, revolved side angle, one hand to floor, other arm up' },
+    { id: 'demi_lune', name: 'Demi-lune', desc: 'Ardha Chandrasana, half moon pose, balancing on one leg, torso sideways, one arm up' },
+    { id: 'roi_danseur', name: 'Roi danseur', desc: 'Natarajasana variation, king dancer pose, one leg lifted behind, both hands holding foot' },
+    { id: 'heron', name: 'Héron', desc: 'Krounchasana, heron pose, seated, one leg extended up, hands holding foot' },
+    { id: 'feuille', name: 'Feuille', desc: 'Supta Padangusthasana, reclining hand-to-big-toe pose, leg extended up, hand holding toe' },
+    { id: 'berceau', name: 'Berceau', desc: 'Ananda Balasana, happy baby pose, lying on back, knees to chest, hands holding feet' },
+    { id: 'pince_royale', name: 'Pince royale', desc: 'Kurmasana variation, tortoise pose advanced, legs wide, torso through' },
+    { id: 'roue', name: 'La Roue', desc: 'Urdhva Dhanurasana, wheel pose, lying on back, hands and feet on floor, back arched' },
+    { id: 'pont_epaule', name: 'Pont sur épaules', desc: 'Setu Bandhasana variation, bridge on shoulders, only shoulders on floor, back arched' },
+    { id: 'pigeon_royal', name: 'Pigeon royal', desc: 'Rajakapotasana, king pigeon, back arched, hands holding foot behind head' },
+    { id: 'cygne', name: 'Cygne', desc: 'Hamsasana, swan pose, kneeling, hands on floor, chest lifted, one leg extended back' },
+    { id: 'flamant', name: 'Flamant rose', desc: 'Flamingo pose, standing on one leg, other leg extended back, torso forward, arms out' },
+    { id: 'temple', name: 'Temple', desc: 'Parsvottanasana, pyramid pose, standing, legs apart, torso folded forward, hands behind back' },
+    { id: 'aigle_royal', name: 'Aigle royal', desc: 'Garudasana variation, eagle pose advanced, arms crossed, one leg wrapped, deep squat' }
+];
+
+function populatePoseSelect() {
+    const sel = $('poseSelect');
+    sel.innerHTML = '<option value="random">🎲 Aléatoire (20 poses)</option>' +
+        YOGA_POSES.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
+}
+
+function pickRandomPoses(count) {
+    let available = YOGA_POSES.filter(p => !state.usedPoseIds.includes(p.id));
+    if (available.length < count) { state.usedPoseIds = []; available = [...YOGA_POSES]; }
+    const shuffled = [...available].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, count);
+    picked.forEach(p => state.usedPoseIds.push(p.id));
+    return picked;
+}
+
+/* ⚡ DÉCISION : utiliser l'image neutre ou la vraie photo */
+function shouldUseNeutralReference(viewKey) {
+    // Pour TOUTES les vues, on utilise l'image neutre.
+    // Raison : l'IA copie trop l'angle de la photo source.
+    // L'image neutre la force à inventer la composition.
+    return true;
+}
+
+/* ---------- GÉNÉRATION ---------- */
+async function generateImages(isMore = false) {
+    if (state.isRunning) return;
+    if (!state.apiKey) { showToast('Ajoutez votre clé API', 'error'); return; }
+    if (!state.referenceImage) { showToast('Ajoutez une photo', 'error'); return; }
+
+    state.isRunning = true; state.stopRequested = false;
+    $('generateBtn').disabled = true; $('generateBtn').textContent = '⏳ Génération...';
+    $('morePosesBtn').disabled = true;
+    $('stopBtn').classList.add('visible');
+    
+    if (!isMore) {
+        state.images = []; state.usedPoseIds = [];
+        $('resultsGrid').innerHTML = ''; $('resultCount').textContent = '0 / 20';
+    }
+    
+    $('progressContainer').style.display = 'flex';
+    $('resultsSection').style.display = 'block';
+
+    const poseSelect = $('poseSelect').value;
+    const viewKey = $('viewSelect').value;
+    const viewText = VIEWS[viewKey];
+    const viewLabel = VIEW_LABELS[viewKey];
+    const environment = $('environmentSelect').value;
+    const clothing = $('clothingSelect').value;
+    const color = $('colorInput').value || 'Vert sauge';
+
+    // ⚡ Utiliser l'image neutre pour TOUTES les vues
+    const useNeutralRef = shouldUseNeutralReference(viewKey);
+
+    let selectedPoses = [];
+    if (poseSelect === 'random') selectedPoses = pickRandomPoses(20);
+    else { const pose = YOGA_POSES.find(p => p.id === poseSelect); if (pose) selectedPoses = new Array(20).fill(pose); }
+
+    const prompts = [];
+    for (let i = 0; i < 20; i++) {
+        const pose = selectedPoses[i % selectedPoses.length];
+        prompts.push({
+            poseName: pose.name,
+            label: pose.name + ' · ' + viewLabel,
+            prompt: buildYogaPrompt(pose.name, pose.desc, environment, clothing, color, viewKey, viewText, null),
+            useNeutralRef: useNeutralRef
+        });
+    }
+
+    const newImages = prompts.map(p => ({ label: p.label, prompt: p.prompt, status: 'pending', url: null, selected: false, error: null, markedBad: false, useNeutralRef: p.useNeutralRef }));
+    
+    const startIndex = isMore ? state.images.length : 0;
+    if (isMore) state.images = state.images.concat(newImages);
+    else state.images = newImages;
+
+    let progress = 0, completed = 0;
+    const total = newImages.length;
+    const updateProgress = (statusText) => { $('progressPercent').textContent = Math.round(progress) + '%'; $('progressBarFill').style.width = progress + '%'; if (statusText) $('progressStatus').textContent = statusText; };
+
+    updateProgress('Analyse de la photo...'); await sleep(600);
+
+    const BATCH = 3;
+    for (let i = 0; i < newImages.length; i += BATCH) {
+        if (state.stopRequested) break;
+        const batch = newImages.slice(i, i + BATCH);
+        await Promise.allSettled(batch.map(async (p, bi) => {
+            const idx = startIndex + i + bi;
+            if (state.stopRequested) return;
+            state.images[idx].status = 'loading'; renderResults();
+            try {
+                updateProgress('Image ' + (idx + 1) + ' / ' + state.images.length + ' : ' + p.poseName);
+                const url = await generateImage(p.prompt, p.useNeutralRef);
+                state.images[idx].status = 'done'; state.images[idx].url = url; completed++;
+            } catch (e) { state.images[idx].status = 'error'; state.images[idx].error = e.message; completed++; }
+            progress = (completed / total) * 100; updateProgress(); renderResults();
+        }));
+    }
+
+    if (state.stopRequested) {
+        showToast('Génération arrêtée', 'warn', 3000);
+        state.images.forEach(img => {
+            if (img.status === 'loading' || img.status === 'pending') {
+                img.status = 'error'; img.error = 'Annulé par l\'utilisateur';
+            }
+        });
+        renderResults();
+    } else {
+        progress = 100; updateProgress('✓ Terminé !');
+        const done = state.images.filter(x => x.status === 'done').length;
+        showToast(done + ' / ' + state.images.length + ' images générées', done > 0 ? 'success' : 'warn', 3000);
+    }
+    
+    state.isRunning = false; state.stopRequested = false;
+    $('generateBtn').disabled = false; $('generateBtn').textContent = '✨ Générer à nouveau';
+    $('morePosesBtn').disabled = false;
+    $('stopBtn').classList.remove('visible');
+    setTimeout(() => { $('progressContainer').style.display = 'none'; }, 2500);
+}
+
+function stopGeneration() {
+    if (!state.isRunning) return;
+    state.stopRequested = true;
+    $('stopBtn').textContent = '⏳ Arrêt en cours...';
+    showToast('Arrêt demandé, patientez...', 'warn', 3000);
+    setTimeout(() => { $('stopBtn').textContent = '🛑 Arrêter la génération'; }, 3000);
+}
+
+function generateMore() {
+    if (state.isRunning) { showToast('Génération en cours...', 'warn'); return; }
+    if (!state.apiKey) { showToast('Ajoutez votre clé API', 'error'); return; }
+    if (!state.referenceImage) { showToast('Ajoutez une photo', 'error'); return; }
+    showToast('Génération de 20 nouvelles poses...', 'success', 2000);
+    generateImages(true);
+}
+
+async function regenerateOne(idx) {
+    if (state.isRunning) { showToast('Génération en cours...', 'warn'); return; }
+    const img = state.images[idx]; if (!img) return;
+    if (!state.apiKey) { showToast('Clé API manquante', 'error'); return; }
+
+    state.isRunning = true; img.status = 'loading'; img.url = null; img.error = null; renderResults();
+    showToast('Régénération en cours...', 'warn', 2000);
+
+    try {
+        let newPrompt = img.prompt;
+        if (img.markedBad) newPrompt += '\n\nAVOID: the previous attempt failed. Use a completely different composition and lighting. NO head twist. NO animal.';
+        const url = await generateImage(newPrompt, img.useNeutralRef);
+        img.url = url; img.status = 'done'; renderResults();
+        showToast('Image régénérée ✓', 'success', 1500);
+    } catch (e) { img.status = 'error'; img.error = e.message; renderResults(); showToast('Erreur : ' + e.message.slice(0, 50), 'error'); }
+    state.isRunning = false;
+}
+
+function markBad(idx) {
+    const img = state.images[idx]; if (!img) return;
+    img.markedBad = !img.markedBad;
+    if (img.markedBad) { state.badPrompts.push({ label: img.label, prompt: img.prompt }); showToast('Image marquée comme ratée.', 'warn', 2000); }
+    else { state.badPrompts = state.badPrompts.filter(x => x.label !== img.label); }
+    renderResults();
+}
+
+function renderResults() {
+    const grid = $('resultsGrid'); const images = state.images; if (images.length === 0) return;
+    $('resultsSection').style.display = 'block'; $('selectionBar').style.display = 'flex';
+
+    grid.innerHTML = images.map((img, i) => {
+        let inner;
+        if (img.status === 'loading' || img.status === 'pending') inner = '<div class="ri-spinner"></div>';
+        else if (img.status === 'error') inner = '<div style="padding:10px;">✕<br><small>' + esc((img.error || '').slice(0, 50)) + '</small></div>';
+        else inner = '<img src="' + img.url + '" alt="" loading="lazy">';
+
+        const cls = 'result-item' + (img.status === 'error' ? ' error' : '') + (img.selected ? ' selected' : '') + (img.markedBad ? ' marked-bad' : '');
+        const check = img.status === 'done' ? '<div class="ri-check" onclick="toggleSelect(' + i + ')">' + (img.selected ? '✓' : '') + '</div>' : '';
+        const actions = img.status === 'done' ? '<div class="ri-actions">'
+            + '<button onclick="regenerateOne(' + i + ')" title="Régénérer">↻</button>'
+            + '<button class="thumb-down' + (img.markedBad ? ' active' : '') + '" onclick="markBad(' + i + ')" title="Signaler comme ratée">👎</button>'
+            + '</div>' : '';
+        const badBadge = img.markedBad ? '<div class="ri-bad-badge">RATÉE</div>' : '';
+
+        return '<div class="' + cls + '">' + inner + check + actions + badBadge + '<div class="ri-label">' + esc(img.label) + '</div></div>';
+    }).join('');
+
+    const done = images.filter(x => x.status === 'done').length;
+    $('resultCount').textContent = done + ' / ' + images.length;
+    const selCount = images.filter(x => x.selected).length;
+    $('selectionCount').textContent = selCount;
+}
+
+function toggleSelect(idx) { if (state.images[idx]) { state.images[idx].selected = !state.images[idx].selected; renderResults(); } }
+function selectAll() { state.images.forEach(img => { if (img.status === 'done') img.selected = true; }); renderResults(); }
+function deselectAll() { state.images.forEach(img => img.selected = false); renderResults(); }
+
+async function downloadSelection() {
+    const selected = state.images.filter(x => x.selected && x.status === 'done' && x.url);
+    if (selected.length === 0) { showToast('Aucune image sélectionnée', 'warn'); return; }
+    if (typeof JSZip === 'undefined') { showToast('JSZip non chargé', 'error'); return; }
+    showToast('Préparation du ZIP...', 'success', 2000);
+    try {
+        const zip = new JSZip();
+        for (let i = 0; i < selected.length; i++) {
+            const img = selected[i];
+            try { const res = await fetch(img.url, { mode: 'cors' }); const blob = await res.blob(); const safeName = (img.label || 'pose').replace(/[^a-z0-9]+/gi, '_').slice(0, 40); zip.file(safeName + '_' + (i + 1) + '.png', blob); } catch (e) {}
+        }
+        const blob = await zip.generateAsync({ type: 'blob' }); const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'yogagen-' + Date.now() + '.zip';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        showToast('ZIP téléchargé ✓', 'success', 2500);
+    } catch (e) { showToast('Erreur ZIP', 'error'); }
+}
+
+(function init() {
+    loadApiKey();
+    $('apiKeyInput').addEventListener('change', saveApiKey);
+    $('apiKeyInput').addEventListener('blur', saveApiKey);
+    populatePoseSelect();
+    NEUTRAL_REFERENCE = createNeutralReference();
+    console.log('🧘‍♀️ YogaGen v9 prêt. Image neutre + caméra perpendiculaire.');
+})();
+</script>
+
+</body>
+</html>
